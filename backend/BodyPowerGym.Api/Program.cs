@@ -50,6 +50,7 @@ if (isPostgres)
 
 builder.Services.AddDbContext<BodyPowerGymDbContext>(options =>
 {
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     if (isPostgres)
     {
         options.UseNpgsql(connectionString);

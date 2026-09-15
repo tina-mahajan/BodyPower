@@ -18,18 +18,24 @@ namespace BodyPowerGym.Api.Data
             ILogger logger)
         {
             var autoMigrate = config.GetValue<bool>("Database:AutoMigrate", true);
-
             if (autoMigrate)
             {
-                logger.LogInformation("Ensuring database schema exists...");
+                logger.LogInformation("Ensuring database schema exists in PostgreSQL...");
                 try
                 {
-                    await context.Database.MigrateAsync();
+                    await context.Database.EnsureCreatedAsync();
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "MigrateAsync encountered an issue. Falling back to EnsureCreatedAsync...");
-                    await context.Database.EnsureCreatedAsync();
+                    logger.LogWarning(ex, "EnsureCreatedAsync encountered an issue. Trying MigrateAsync...");
+                    try
+                    {
+                        await context.Database.MigrateAsync();
+                    }
+                    catch (Exception ex2)
+                    {
+                        logger.LogError(ex2, "Schema initialization error: {Message}", ex2.Message);
+                    }
                 }
             }
 
