@@ -108,7 +108,7 @@ export default function LoginScreen() {
         {checkingStatus ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm">Connecting to SQL Server database...</p>
+            <p className="text-sm">Connecting to BodyPower Cloud Database...</p>
           </div>
         ) : needsSetup ? (
           /* FIRST-TIME SETUP CARD */

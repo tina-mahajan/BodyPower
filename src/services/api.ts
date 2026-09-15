@@ -38,7 +38,11 @@ async function fetchWithFallback(url: string, fallbackUrl: string, options: Requ
   }
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function request<T>(endpoint: string, options: RequestInit = {}, retries = 3): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -55,48 +59,62 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const primaryUrl = `${PRIMARY_API}${endpoint}`;
   const directUrl = `${DIRECT_API}${endpoint}`;
 
-  try {
-    const res = await fetchWithFallback(primaryUrl, directUrl, {
-      ...options,
-      headers,
-    });
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithFallback(primaryUrl, directUrl, {
+        ...options,
+        headers,
+      });
 
-    if (res.status === 401) {
-      setAuthToken(null);
-      throw new Error("Invalid credentials or session expired.");
-    }
-
-    if (!res.ok) {
-      let errorMsg = `Server returned status ${res.status}`;
-      try {
-        const errorData = await res.json();
-        if (errorData.message) {
-          errorMsg = errorData.message;
-        } else if (errorData.title) {
-          errorMsg = errorData.title;
-        } else if (errorData.errors) {
-          errorMsg = Object.values(errorData.errors).flat().join(" ");
-        }
-      } catch {
-        // use default errorMsg
+      if (res.status === 401) {
+        setAuthToken(null);
+        throw new Error("Invalid email or password.");
       }
-      throw new Error(errorMsg);
-    }
 
-    if (res.status === 204) {
-      return {} as T;
-    }
+      if (!res.ok) {
+        let errorMsg = `Server returned status ${res.status}`;
+        try {
+          const errorData = await res.json();
+          if (errorData.message) {
+            errorMsg = errorData.message;
+          } else if (errorData.title) {
+            errorMsg = errorData.title;
+          } else if (errorData.errors) {
+            errorMsg = Object.values(errorData.errors).flat().join(" ");
+          }
+        } catch {
+          // use default errorMsg
+        }
 
-    return await res.json();
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      throw new Error("Server is waking up from sleep. Please tap Login again in 10 seconds.");
+        // If gateway error (502, 503, 504) and we have retries left, wait and retry
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < retries) {
+          await sleep(2500);
+          continue;
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      if (res.status === 204) {
+        return {} as T;
+      }
+
+      return await res.json();
+    } catch (err: any) {
+      if (attempt < retries && (err.name === "AbortError" || (err.name === "TypeError" && err.message.includes("fetch")))) {
+        // Wait and retry automatically while cloud server boots
+        await sleep(2500);
+        continue;
+      }
+
+      if (err.name === "AbortError" || (err.name === "TypeError" && err.message.includes("fetch"))) {
+        throw new Error("Connecting to server. Please tap Login again to proceed.");
+      }
+      throw err;
     }
-    if (err.name === "TypeError" && err.message.includes("fetch")) {
-      throw new Error("Unable to reach cloud server. Please wait 10 seconds for cloud instance to wake up and try again.");
-    }
-    throw err;
   }
+
+  throw new Error("Could not connect to server. Please try again.");
 }
 
 export const api = {
