@@ -20,14 +20,20 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Database Context
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Server=ASUS-VIVOBOOK\\TINASQLSERVER;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
-var isPostgres = connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) 
-              || connectionString.Contains("Server=db.", StringComparison.OrdinalIgnoreCase)
-              || connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase)
-              || connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
-              || connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase);
+var isPostgres = rawConnectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) 
+              || rawConnectionString.Contains("Server=db.", StringComparison.OrdinalIgnoreCase)
+              || rawConnectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase)
+              || rawConnectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
+              || rawConnectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase);
+
+var connectionString = rawConnectionString;
+if (isPostgres)
+{
+    connectionString = ParsePostgresConnectionString(rawConnectionString);
+}
 
 builder.Services.AddDbContext<BodyPowerGymDbContext>(options =>
 {
@@ -232,3 +238,50 @@ app.MapPost("/api/internal/reminders/run", async (
 });
 
 app.Run();
+
+static string ParsePostgresConnectionString(string raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return raw;
+
+    // If it's already in Key=Value format, ensure SSL settings for cloud PostgreSQL (Supabase)
+    if (!raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) &&
+        !raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+    {
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(raw);
+        if (builder.Host != null && (builder.Host.Contains("supabase.co") || builder.Host.Contains("supabase.com") || builder.Host.Contains("render.com")))
+        {
+            builder.SslMode = Npgsql.SslMode.Require;
+            builder.TrustServerCertificate = true;
+        }
+        return builder.ConnectionString;
+    }
+
+    try
+    {
+        var uri = new Uri(raw);
+        var userInfo = uri.UserInfo.Split(':');
+        var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "postgres";
+        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+        if (string.IsNullOrEmpty(database)) database = "postgres";
+
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder
+        {
+            Host = host,
+            Port = port,
+            Database = database,
+            Username = username,
+            Password = password,
+            SslMode = Npgsql.SslMode.Require,
+            TrustServerCertificate = true,
+            Pooling = true
+        };
+        return builder.ConnectionString;
+    }
+    catch
+    {
+        return raw;
+    }
+}
