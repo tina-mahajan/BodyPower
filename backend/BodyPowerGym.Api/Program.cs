@@ -325,9 +325,9 @@ static string ParsePostgresConnectionString(string raw)
     try
     {
         var uri = new Uri(raw);
-        var userInfo = uri.UserInfo.Split(':');
-        var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "postgres";
-        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var firstColon = uri.UserInfo.IndexOf(':');
+        var username = firstColon > 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(0, firstColon)) : (string.IsNullOrEmpty(uri.UserInfo) ? "postgres" : uri.UserInfo);
+        var password = firstColon > 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(firstColon + 1)) : "";
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 5432;
         var database = uri.AbsolutePath.TrimStart('/');
