@@ -42,7 +42,7 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}, retries = 3): Promise<T> {
+async function request<T>(endpoint: string, options: RequestInit = {}, retries = 6): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -66,12 +66,25 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retries =
         headers,
       });
 
-      if (res.status === 401) {
-        setAuthToken(null);
-        throw new Error("Invalid email or password.");
+      if (res.status === 401 || res.status === 400) {
+        let errorMsg = "Invalid email or password.";
+        try {
+          const errorData = await res.json();
+          if (errorData.message) errorMsg = errorData.message;
+        } catch {
+          // use default errorMsg
+        }
+        if (res.status === 401) setAuthToken(null);
+        throw new Error(errorMsg);
       }
 
       if (!res.ok) {
+        // If gateway/proxy error (502, 503, 504) and we have retries left, wait and retry
+        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < retries) {
+          await sleep(2000);
+          continue;
+        }
+
         let errorMsg = `Server returned status ${res.status}`;
         try {
           const errorData = await res.json();
@@ -85,13 +98,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retries =
         } catch {
           // use default errorMsg
         }
-
-        // If gateway error (502, 503, 504) and we have retries left, wait and retry
-        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < retries) {
-          await sleep(2500);
-          continue;
-        }
-
         throw new Error(errorMsg);
       }
 
@@ -101,20 +107,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retries =
 
       return await res.json();
     } catch (err: any) {
-      if (attempt < retries && (err.name === "AbortError" || (err.name === "TypeError" && err.message.includes("fetch")))) {
-        // Wait and retry automatically while cloud server boots
-        await sleep(2500);
+      if (err.message === "Invalid email or password." || (err.message && !err.message.includes("fetch") && err.name !== "TypeError" && err.name !== "AbortError")) {
+        throw err;
+      }
+
+      if (attempt < retries) {
+        await sleep(2000);
         continue;
       }
 
-      if (err.name === "AbortError" || (err.name === "TypeError" && err.message.includes("fetch"))) {
-        throw new Error("Connecting to server. Please tap Login again to proceed.");
-      }
-      throw err;
+      throw new Error("Unable to connect to database. Please check your network and tap Login again.");
     }
   }
 
-  throw new Error("Could not connect to server. Please try again.");
+  throw new Error("Unable to connect to database. Please try again.");
 }
 
 export const api = {
