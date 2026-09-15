@@ -19,20 +19,20 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Database Context
-var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? builder.Configuration["ConnectionString_DefaultConnection"]
-    ?? builder.Configuration["ConnectionStrings_DefaultConnection"]
-    ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
-    ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
-    ?? builder.Configuration["DATABASE_URL"]
-    ?? builder.Configuration["DefaultConnection"]
-    ?? Environment.GetEnvironmentVariable("ConnectionString_DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings_DefaultConnection")
+// 1. Database Context - Environment variables take strict priority over appsettings.json for cloud deployment
+var envConn = Environment.GetEnvironmentVariable("ConnectionString_DefaultConnection")
     ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings_DefaultConnection")
     ?? Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? Environment.GetEnvironmentVariable("DefaultConnection")
-    ?? "Server=ASUS-VIVOBOOK\\TINASQLSERVER;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+    ?? builder.Configuration["ConnectionString_DefaultConnection"]
+    ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
+    ?? builder.Configuration["ConnectionStrings_DefaultConnection"]
+    ?? builder.Configuration["DATABASE_URL"];
+
+var rawConnectionString = !string.IsNullOrWhiteSpace(envConn) 
+    ? envConn 
+    : (builder.Configuration.GetConnectionString("DefaultConnection") ?? "Server=ASUS-VIVOBOOK\\TINASQLSERVER;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True");
 
 var isPostgres = rawConnectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) 
               || rawConnectionString.Contains("Server=db.", StringComparison.OrdinalIgnoreCase)
