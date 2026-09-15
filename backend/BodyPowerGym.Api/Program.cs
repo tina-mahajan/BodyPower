@@ -21,17 +21,32 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Database Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Server=(localdb)\\mssqllocaldb;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+    ?? "Server=ASUS-VIVOBOOK\\TINASQLSERVER;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+
+var isPostgres = connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) 
+              || connectionString.Contains("Server=db.", StringComparison.OrdinalIgnoreCase)
+              || connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase)
+              || connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
+              || connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase);
 
 builder.Services.AddDbContext<BodyPowerGymDbContext>(options =>
-    options.UseSqlServer(connectionString));
+{
+    if (isPostgres)
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
+});
 
 // 2. Identity Password Hasher
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // 3. Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IPhotoStorageService, LocalPhotoStorageService>();
+builder.Services.AddScoped<IPhotoStorageService, CloudinaryPhotoStorageService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
 
 // 4. Background Reminder Worker
@@ -165,5 +180,31 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// 9. Internal Protected Reminder Trigger for Cloud Schedulers (e.g. cron-job.org)
+app.MapPost("/api/internal/reminders/run", async (
+    HttpContext context,
+    IConfiguration config,
+    IReminderService reminderService,
+    ILogger<Program> logger) =>
+{
+    var expectedSecret = config["ReminderSecret"] ?? config["REMINDER_SECRET"] ?? "BodyPower_InternalReminderSecret_Key_2026!";
+    if (!context.Request.Headers.TryGetValue("X-Reminder-Secret", out var providedSecret) || providedSecret != expectedSecret)
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var count = await reminderService.ProcessDailyRemindersAsync();
+        logger.LogInformation("Internal reminder trigger executed. {Count} notifications created.", count);
+        return Results.Ok(new { message = "Reminders executed successfully", count });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error executing internal reminder trigger.");
+        return Results.Problem(ex.Message);
+    }
+});
 
 app.Run();

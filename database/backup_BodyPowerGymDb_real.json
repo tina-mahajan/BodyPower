@@ -1,0 +1,93 @@
+{
+    "MembershipPlans":  [
+                            {
+                                "Id":  "p-1789465083729",
+                                "Name":  "Monthly Plan",
+                                "DurationMonths":  1,
+                                "Price":  600.00,
+                                "Description":  null,
+                                "IsActive":  true,
+                                "CreatedAt":  "\/Date(1789445283729)\/",
+                                "UpdatedAt":  null
+                            },
+                            {
+                                "Id":  "p-1789465216281",
+                                "Name":  "Quarterly Plan",
+                                "DurationMonths":  3,
+                                "Price":  1600.00,
+                                "Description":  null,
+                                "IsActive":  true,
+                                "CreatedAt":  "\/Date(1789445416281)\/",
+                                "UpdatedAt":  null
+                            }
+                        ],
+    "GymSettings":  [
+                        {
+                            "Id":  "gym-default",
+                            "GymName":  "BodyPower Gym",
+                            "Phone":  "7410584858",
+                            "Address":  "Main Branch",
+                            "LogoUrl":  null,
+                            "ReminderDaysJson":  "[3,1]",
+                            "InactiveAfterMonths":  2,
+                            "UpdatedAt":  "\/Date(1789445589013)\/"
+                        }
+                    ],
+    "Users":  [
+                  {
+                      "Id":  "u-1789466564806",
+                      "RoleId":  "admin",
+                      "FullName":  "Rahul Mali",
+                      "Email":  "rahulmali@gmail.com",
+                      "NormalizedEmail":  "RAHULMALI@GMAIL.COM",
+                      "Mobile":  "8600276867",
+                      "PasswordHash":  "AQAAAAIAAYagAAAAEKINGkYYLvpj9LxXjRbr1G7u/ymbaAlAxS+nddbEFdYOkuH2WBQHKn8AL1X3s7nDOw==",
+                      "AvatarUrl":  null,
+                      "IsActive":  true,
+                      "CreatedAt":  "\/Date(1789446764806)\/",
+                      "UpdatedAt":  null
+                  },
+                  {
+                      "Id":  "u-1789469393891",
+                      "RoleId":  "manager",
+                      "FullName":  "Juber sir",
+                      "Email":  "juber@gmail.com",
+                      "NormalizedEmail":  "JUBER@GMAIL.COM",
+                      "Mobile":  "9993090118",
+                      "PasswordHash":  "AQAAAAIAAYagAAAAEDj1SweV3tgtCv80d5DIX73FZiOuBlxhEO+vfEfrQAwu0M+Rwge4rp6jdP5cPAICAw==",
+                      "AvatarUrl":  null,
+                      "IsActive":  true,
+                      "CreatedAt":  "\/Date(1789449593893)\/",
+                      "UpdatedAt":  null
+                  },
+                  {
+                      "Id":  "u-admin-1",
+                      "RoleId":  "admin",
+                      "FullName":  "Yogesh Gopal Mahajan",
+                      "Email":  "yogeshmahajan@gmail.com",
+                      "NormalizedEmail":  "YOGESHMAHAJAN@GMAIL.COM",
+                      "Mobile":  "7410584858",
+                      "PasswordHash":  "AQAAAAIAAYagAAAAEG4xcW9wClQyCwGNHVIRFjrn1KSv0EVHrru7wNX3gpRxQDHkxkSR586HvtB9piBZeA==",
+                      "AvatarUrl":  null,
+                      "IsActive":  true,
+                      "CreatedAt":  "\/Date(1789445134013)\/",
+                      "UpdatedAt":  null
+                  }
+              ],
+    "Roles":  [
+                  {
+                      "Id":  "admin",
+                      "Name":  "Admin",
+                      "NormalizedName":  "ADMIN",
+                      "Description":  "Full administrative system access",
+                      "CreatedAt":  "\/Date(1789445133748)\/"
+                  },
+                  {
+                      "Id":  "manager",
+                      "Name":  "Manager",
+                      "NormalizedName":  "MANAGER",
+                      "Description":  "Operational front-desk access",
+                      "CreatedAt":  "\/Date(1789445133748)\/"
+                  }
+              ]
+}
