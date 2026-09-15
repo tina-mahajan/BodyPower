@@ -21,10 +21,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Database Context
 var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? builder.Configuration["ConnectionString_DefaultConnection"]
+    ?? builder.Configuration["ConnectionStrings_DefaultConnection"]
     ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
     ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
     ?? builder.Configuration["DATABASE_URL"]
     ?? builder.Configuration["DefaultConnection"]
+    ?? Environment.GetEnvironmentVariable("ConnectionString_DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings_DefaultConnection")
     ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? Environment.GetEnvironmentVariable("DefaultConnection")
@@ -68,9 +72,24 @@ builder.Services.AddScoped<IReminderService, ReminderService>();
 builder.Services.AddHostedService<BackgroundReminderWorker>();
 
 // 5. Authentication & JWT Bearer
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "BodyPowerGym_SuperSecret_SecurityKey_2026_ProdKey_9876543210!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "BodyPowerGymApi";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "BodyPowerGymPwa";
+var jwtKey = builder.Configuration["Jwt:Key"] 
+    ?? builder.Configuration["Jwt__Key"] 
+    ?? builder.Configuration["Jwt_Key"] 
+    ?? Environment.GetEnvironmentVariable("Jwt_Key")
+    ?? Environment.GetEnvironmentVariable("Jwt__Key")
+    ?? "BodyPowerGym_SuperSecret_SecurityKey_2026_ProdKey_9876543210!";
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] 
+    ?? builder.Configuration["Jwt__Issuer"] 
+    ?? builder.Configuration["Jwt_Issuer"] 
+    ?? Environment.GetEnvironmentVariable("Jwt_Issuer")
+    ?? "BodyPowerGymApi";
+
+var jwtAudience = builder.Configuration["Jwt:Audience"] 
+    ?? builder.Configuration["Jwt__Audience"] 
+    ?? builder.Configuration["Jwt_Audience"] 
+    ?? Environment.GetEnvironmentVariable("Jwt_Audience")
+    ?? "BodyPowerGymPwa";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -100,7 +119,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 // 6. CORS Policy for PWA Frontend
-var allowedOriginsConfig = builder.Configuration["Cors:AllowedOrigins"] ?? builder.Configuration["Cors__AllowedOrigins"];
+var allowedOriginsConfig = builder.Configuration["Cors:AllowedOrigins"] 
+    ?? builder.Configuration["Cors__AllowedOrigins"] 
+    ?? builder.Configuration["Cors_AllowedOrigins"]
+    ?? Environment.GetEnvironmentVariable("Cors_AllowedOrigins");
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowPwaClient", policy =>
@@ -227,7 +249,12 @@ app.MapPost("/api/internal/reminders/run", async (
     IReminderService reminderService,
     ILogger<Program> logger) =>
 {
-    var expectedSecret = config["ReminderSecret"] ?? config["REMINDER_SECRET"] ?? "BodyPower_InternalReminderSecret_Key_2026!";
+    var expectedSecret = config["ReminderSecret"] 
+        ?? config["RemainderSecret"] 
+        ?? config["REMINDER_SECRET"] 
+        ?? Environment.GetEnvironmentVariable("RemainderSecret")
+        ?? Environment.GetEnvironmentVariable("ReminderSecret")
+        ?? "BodyPower_InternalReminderSecret_Key_2026!";
     if (!context.Request.Headers.TryGetValue("X-Reminder-Secret", out var providedSecret) || providedSecret != expectedSecret)
     {
         return Results.Unauthorized();
