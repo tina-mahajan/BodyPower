@@ -1,7 +1,8 @@
 import type { Member, MembershipPlan, Notification, User, Payment, PaymentMethod } from "../types";
 
-const PRIMARY_API = import.meta.env.VITE_API_URL || "/api";
-const DIRECT_API = "https://bodypower-teck.onrender.com/api";
+const API_BASE = typeof window !== "undefined" && window.location.hostname.includes("netlify.app") 
+  ? "/api" 
+  : "https://bodypower-teck.onrender.com/api";
 
 function getToken(): string | null {
   return localStorage.getItem("bp_token");
@@ -15,34 +16,7 @@ export function setAuthToken(token: string | null) {
   }
 }
 
-async function fetchWithFallback(url: string, fallbackUrl: string, options: RequestInit): Promise<Response> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (res.status === 502 || res.status === 503 || res.status === 504) {
-      // Netlify proxy timeout or gateway error -> try direct Render URL
-      return await fetch(fallbackUrl, options);
-    }
-    return res;
-  } catch (err: any) {
-    if (url !== fallbackUrl) {
-      try {
-        return await fetch(fallbackUrl, options);
-      } catch (directErr) {
-        throw err;
-      }
-    }
-    throw err;
-  }
-}
-
-async function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function request<T>(endpoint: string, options: RequestInit = {}, retries = 6): Promise<T> {
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -56,71 +30,45 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retries =
     headers["Content-Type"] = "application/json";
   }
 
-  const primaryUrl = `${PRIMARY_API}${endpoint}`;
-  const directUrl = `${DIRECT_API}${endpoint}`;
+  const url = `${API_BASE}${endpoint}`;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (err: any) {
+    // If relative /api failed, try direct Render backend
     try {
-      const res = await fetchWithFallback(primaryUrl, directUrl, {
-        ...options,
-        headers,
-      });
-
-      if (res.status === 401 || res.status === 400) {
-        let errorMsg = "Invalid email or password.";
-        try {
-          const errorData = await res.json();
-          if (errorData.message) errorMsg = errorData.message;
-        } catch {
-          // use default errorMsg
-        }
-        if (res.status === 401) setAuthToken(null);
-        throw new Error(errorMsg);
-      }
-
-      if (!res.ok) {
-        // If gateway/proxy error (502, 503, 504) and we have retries left, wait and retry
-        if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < retries) {
-          await sleep(2000);
-          continue;
-        }
-
-        let errorMsg = `Server returned status ${res.status}`;
-        try {
-          const errorData = await res.json();
-          if (errorData.message) {
-            errorMsg = errorData.message;
-          } else if (errorData.title) {
-            errorMsg = errorData.title;
-          } else if (errorData.errors) {
-            errorMsg = Object.values(errorData.errors).flat().join(" ");
-          }
-        } catch {
-          // use default errorMsg
-        }
-        throw new Error(errorMsg);
-      }
-
-      if (res.status === 204) {
-        return {} as T;
-      }
-
-      return await res.json();
-    } catch (err: any) {
-      if (err.message === "Invalid email or password." || (err.message && !err.message.includes("fetch") && err.name !== "TypeError" && err.name !== "AbortError")) {
-        throw err;
-      }
-
-      if (attempt < retries) {
-        await sleep(2000);
-        continue;
-      }
-
-      throw new Error("Unable to connect to database. Please check your network and tap Login again.");
+      res = await fetch(`https://bodypower-teck.onrender.com/api${endpoint}`, { ...options, headers });
+    } catch (directErr: any) {
+      throw new Error("Unable to connect to database server. Please check your internet connection and try again.");
     }
   }
 
-  throw new Error("Unable to connect to database. Please try again.");
+  if (res.status === 401 || res.status === 400) {
+    let errorMsg = "Invalid email or password.";
+    try {
+      const errorData = await res.json();
+      if (errorData.message) errorMsg = errorData.message;
+    } catch {}
+    if (res.status === 401) setAuthToken(null);
+    throw new Error(errorMsg);
+  }
+
+  if (!res.ok) {
+    let errorMsg = `Server error (${res.status})`;
+    try {
+      const errorData = await res.json();
+      if (errorData.message) errorMsg = errorData.message;
+      else if (errorData.title) errorMsg = errorData.title;
+    } catch {}
+    throw new Error(errorMsg);
+  }
+
+  if (res.status === 204) {
+    return {} as T;
+  }
+
+  return await res.json();
 }
 
 export const api = {
