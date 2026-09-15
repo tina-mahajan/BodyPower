@@ -21,11 +21,20 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Database Context
 var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
+    ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
+    ?? builder.Configuration["DATABASE_URL"]
+    ?? builder.Configuration["DefaultConnection"]
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? Environment.GetEnvironmentVariable("DefaultConnection")
     ?? "Server=ASUS-VIVOBOOK\\TINASQLSERVER;Database=BodyPowerGymDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
 var isPostgres = rawConnectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) 
               || rawConnectionString.Contains("Server=db.", StringComparison.OrdinalIgnoreCase)
               || rawConnectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase)
+              || rawConnectionString.Contains("supabase.co", StringComparison.OrdinalIgnoreCase)
+              || rawConnectionString.Contains("supabase.com", StringComparison.OrdinalIgnoreCase)
               || rawConnectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
               || rawConnectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase);
 
