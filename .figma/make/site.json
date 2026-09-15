@@ -1,0 +1,10 @@
+{
+  "description": "Manage gym memberships, payments, and renewals with an easy-to-use mobile-first platform designed for gym admins and managers to streamline operations.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
