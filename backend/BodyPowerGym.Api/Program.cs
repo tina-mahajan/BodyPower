@@ -85,14 +85,38 @@ builder.Services.AddAuthorization(options =>
 });
 
 // 6. CORS Policy for PWA Frontend
+var allowedOriginsConfig = builder.Configuration["Cors:AllowedOrigins"] ?? builder.Configuration["Cors__AllowedOrigins"];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowPwaClient", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true) // Allow Vite dev server and production origins
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        if (!string.IsNullOrWhiteSpace(allowedOriginsConfig))
+        {
+            var origins = allowedOriginsConfig.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            policy.WithOrigins(origins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrEmpty(origin)) return false;
+                try
+                {
+                    var uri = new Uri(origin);
+                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                }
+                catch
+                {
+                    return false;
+                }
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+        }
     });
 });
 
