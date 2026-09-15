@@ -122,6 +122,13 @@ builder.Services.AddAuthorization(options =>
 // 6. CORS Policy for PWA Frontend
 builder.Services.AddCors(options =>
 {
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
     options.AddPolicy("AllowPwaClient", policy =>
     {
         policy.SetIsOriginAllowed(_ => true)
@@ -199,6 +206,7 @@ Directory.CreateDirectory(uploadsDir);
 // Static files for photo uploads
 app.UseStaticFiles();
 
+app.UseCors();
 app.UseCors("AllowPwaClient");
 
 if (app.Environment.IsDevelopment() || true)
@@ -214,7 +222,7 @@ if (app.Environment.IsDevelopment() || true)
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapControllers().RequireCors("AllowPwaClient");
 
 // 9. Internal Protected Reminder Trigger for Cloud Schedulers (e.g. cron-job.org)
 app.MapPost("/api/internal/reminders/run", async (

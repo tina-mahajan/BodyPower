@@ -1,6 +1,7 @@
 import type { Member, MembershipPlan, Notification, User, Payment, PaymentMethod } from "../types";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const PRIMARY_API = import.meta.env.VITE_API_URL || "/api";
+const DIRECT_API = "https://bodypower-teck.onrender.com/api";
 
 function getToken(): string | null {
   return localStorage.getItem("bp_token");
@@ -11,6 +12,29 @@ export function setAuthToken(token: string | null) {
     localStorage.setItem("bp_token", token);
   } else {
     localStorage.removeItem("bp_token");
+  }
+}
+
+async function fetchWithFallback(url: string, fallbackUrl: string, options: RequestInit): Promise<Response> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      // Netlify proxy timeout or gateway error -> try direct Render URL
+      return await fetch(fallbackUrl, options);
+    }
+    return res;
+  } catch (err: any) {
+    if (url !== fallbackUrl) {
+      try {
+        return await fetch(fallbackUrl, options);
+      } catch (directErr) {
+        throw err;
+      }
+    }
+    throw err;
   }
 }
 
@@ -28,25 +52,31 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers["Content-Type"] = "application/json";
   }
 
-  const url = `${API_BASE}${endpoint}`;
+  const primaryUrl = `${PRIMARY_API}${endpoint}`;
+  const directUrl = `${DIRECT_API}${endpoint}`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithFallback(primaryUrl, directUrl, {
       ...options,
       headers,
     });
 
     if (res.status === 401) {
-      // Unauthorized: clear token
       setAuthToken(null);
-      throw new Error("Session expired. Please login again.");
+      throw new Error("Invalid credentials or session expired.");
     }
 
     if (!res.ok) {
       let errorMsg = `Server returned status ${res.status}`;
       try {
         const errorData = await res.json();
-        errorMsg = errorData.message || errorData.title || JSON.stringify(errorData);
+        if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.title) {
+          errorMsg = errorData.title;
+        } else if (errorData.errors) {
+          errorMsg = Object.values(errorData.errors).flat().join(" ");
+        }
       } catch {
         // use default errorMsg
       }
@@ -59,8 +89,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     return await res.json();
   } catch (err: any) {
+    if (err.name === "AbortError") {
+      throw new Error("Server is waking up from sleep. Please tap Login again in 10 seconds.");
+    }
     if (err.name === "TypeError" && err.message.includes("fetch")) {
-      throw new Error("Cannot connect to server. Please check your network connection.");
+      throw new Error("Unable to reach cloud server. Please wait 10 seconds for cloud instance to wake up and try again.");
     }
     throw err;
   }
