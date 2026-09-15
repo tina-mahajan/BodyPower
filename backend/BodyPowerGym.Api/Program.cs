@@ -309,26 +309,41 @@ static string ParsePostgresConnectionString(string raw)
 {
     if (string.IsNullOrWhiteSpace(raw)) return raw;
 
-    // If it's already in Key=Value format, ensure SSL settings for cloud PostgreSQL (Supabase)
-    if (!raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) &&
-        !raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+    var cleaned = raw.Trim();
+    if (cleaned.StartsWith("tcp://", StringComparison.OrdinalIgnoreCase))
     {
-        var builder = new Npgsql.NpgsqlConnectionStringBuilder(raw);
-        if (builder.Host != null && (builder.Host.Contains("supabase.co") || builder.Host.Contains("supabase.com") || builder.Host.Contains("render.com")))
+        cleaned = "postgresql://" + cleaned.Substring(6);
+    }
+
+    if (cleaned.Contains("ap-southeast1", StringComparison.OrdinalIgnoreCase))
+    {
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, "ap-southeast1", "ap-southeast-1", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    // If it's already in Key=Value format, ensure SSL settings for cloud PostgreSQL (Supabase)
+    if (!cleaned.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) &&
+        !cleaned.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+    {
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(cleaned);
+        if (builder.Host != null)
         {
-            builder.SslMode = Npgsql.SslMode.Require;
-            builder.TrustServerCertificate = true;
+            builder.Host = builder.Host.Replace("ap-southeast1", "ap-southeast-1");
+            if (builder.Host.Contains("supabase.co") || builder.Host.Contains("supabase.com") || builder.Host.Contains("render.com"))
+            {
+                builder.SslMode = Npgsql.SslMode.Require;
+                builder.TrustServerCertificate = true;
+            }
         }
         return builder.ConnectionString;
     }
 
     try
     {
-        var uri = new Uri(raw);
+        var uri = new Uri(cleaned);
         var firstColon = uri.UserInfo.IndexOf(':');
         var username = firstColon > 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(0, firstColon)) : (string.IsNullOrEmpty(uri.UserInfo) ? "postgres" : uri.UserInfo);
         var password = firstColon > 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(firstColon + 1)) : "";
-        var host = uri.Host;
+        var host = uri.Host.Replace("ap-southeast1", "ap-southeast-1");
         var port = uri.Port > 0 ? uri.Port : 5432;
         var database = uri.AbsolutePath.TrimStart('/');
         if (string.IsNullOrEmpty(database)) database = "postgres";
@@ -348,6 +363,6 @@ static string ParsePostgresConnectionString(string raw)
     }
     catch
     {
-        return raw;
+        return cleaned;
     }
 }
