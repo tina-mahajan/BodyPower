@@ -237,6 +237,36 @@ app.MapPost("/api/internal/reminders/run", async (
     }
 });
 
+app.MapGet("/api/health", async (BodyPowerGymDbContext db) =>
+{
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        var userCount = canConnect ? await db.Users.CountAsync() : -1;
+        var roleCount = canConnect ? await db.Roles.CountAsync() : -1;
+        var planCount = canConnect ? await db.MembershipPlans.CountAsync() : -1;
+        var settingsCount = canConnect ? await db.GymSettings.CountAsync() : -1;
+        return Results.Ok(new
+        {
+            status = "Healthy",
+            canConnect,
+            userCount,
+            roleCount,
+            planCount,
+            settingsCount,
+            provider = db.Database.ProviderName
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            title: "Database connection failed",
+            detail: ex.ToString(),
+            statusCode: 500
+        );
+    }
+});
+
 app.Run();
 
 static string ParsePostgresConnectionString(string raw)

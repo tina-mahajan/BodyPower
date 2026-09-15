@@ -22,7 +22,15 @@ namespace BodyPowerGym.Api.Data
             if (autoMigrate)
             {
                 logger.LogInformation("Ensuring database schema exists...");
-                await context.Database.EnsureCreatedAsync();
+                try
+                {
+                    await context.Database.MigrateAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "MigrateAsync encountered an issue. Falling back to EnsureCreatedAsync...");
+                    await context.Database.EnsureCreatedAsync();
+                }
             }
 
             // If roles or users do not exist yet in this database instance (e.g. fresh Supabase PostgreSQL),
