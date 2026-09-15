@@ -1,4 +1,4 @@
-const CACHE_NAME = "bodypower-gym-v1";
+const CACHE_NAME = "bodypower-gym-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
@@ -28,19 +28,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache API requests - transactional data must always be online and validated by the backend
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return new Response(
-          JSON.stringify({ message: "Network unavailable. Please reconnect before performing operations." }),
-          {
-            status: 503,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      })
-    );
+  // Never cache API requests - let browser handle network requests directly
+  if (url.pathname.startsWith("/api/") || url.hostname.includes("onrender.com")) {
     return;
   }
 
