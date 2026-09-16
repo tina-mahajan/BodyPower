@@ -22,3 +22,18 @@ logs/
 bin/
 obj/
 *.user
+
+# Local Netlify folder
+.netlify
+
+# Android build outputs & keystores
+*.apk
+*.aab
+*.keystore
+*.jks
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/.idea/
+android/local.properties
